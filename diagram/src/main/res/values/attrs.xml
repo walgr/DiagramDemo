@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="DiagramView">
+        <attr name="isShow_YLine" format="boolean"/>
+        <attr name="isShowLineChart" format="boolean"/>
+        <attr name="isShow_YLinePointLine" format="boolean"/>
+        <attr name="isShow_Peak" format="boolean"/>
+        <attr name="isShow_Peak_Line" format="boolean"/>
+        <attr name="isShow_Peak_Point" format="boolean"/>
+        <attr name="isShow_Peak_Point_Text" format="boolean"/>
+        <attr name="isShow_Bar" format="boolean"/>
+
+        <attr name="color_XLine" format="color"/>
+        <attr name="color_YLine" format="color"/>
+        <attr name="color_YLinePointLine" format="color"/>
+        <attr name="color_LineChart" format="color"/>
+        <attr name="color_Diagram_Peak" format="color"/>
+        <attr name="color_Diagram_Peak_Line" format="color"/>
+        <attr name="color_Diagram_Peak_Point" format="color"/>
+        <attr name="color_Bar" format="color"/>
+
+        <attr name="width_XLine" format="integer"/>
+        <attr name="width_YLine" format="integer"/>
+        <attr name="width_Peak_Point" format="integer"/>
+        <attr name="width_LineChart" format="integer"/>
+        <attr name="width_Diagram_Peak_Line" format="integer"/>
+        <attr name="width_Bar" format="integer"/>
+        <attr name="size_text" format="integer"/>
+
+    </declare-styleable>
+
+</resources>
