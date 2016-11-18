@@ -24,7 +24,8 @@ class DrawThread extends Thread {
     private float[] xy_X = new float[2];
     private float[] xy_Y = new float[2];
     private int[] x_XLine,y_YLine;
-    private int length_X, length_Y, width_Bar;
+    private int length_X, length_Y, width_Bar,bp_XLine,bp_YLine;
+    private int maxXLine;
 
     DrawThread(SurfaceHolder surfaceHolder, DiagramInfo diagramInfo,
                Paint paint_LineChart, Paint paint_Diagram_Peak, Paint paint_Diagram_Line, Paint paint_Diagram_Point,
@@ -32,7 +33,7 @@ class DrawThread extends Thread {
                Paint paint_Text,
                boolean isShowYLine, boolean isShowYLinePointLine, boolean isShowLineChart, boolean isShowPeak,
                boolean isShowPeakLine, boolean isShowPeakPoint, boolean isShowBar,boolean isShowPeakPointText,
-                int width_Bar) {
+                int width_Bar, int maxXLine) {
 
         this.surfaceHolder = surfaceHolder;
         this.diagramInfo = diagramInfo;
@@ -59,26 +60,27 @@ class DrawThread extends Thread {
         this.isShowPeakPointText = isShowPeakPointText;
 
         this.width_Bar = width_Bar;
+        this.maxXLine = maxXLine;
         calLocation();
     }
 
     private void calLocation() {
-        int bp_XLine = width/10,bp_YLine = height/10;
-        xy_X[0] = bp_XLine;
+        bp_XLine = width/10;
+        bp_YLine = height/10;
+        xy_X[0] = (int) getTextWidth(String.valueOf(diagramInfo.getYLineMax()));
         xy_X[1] = height - bp_YLine;
-        xy_Y[0] = bp_XLine;
+        xy_Y[0] = (int) getTextWidth(String.valueOf(diagramInfo.getYLineMax()));
         xy_Y[1] = 0;
         length_X = width - bp_XLine;
         length_Y = height - bp_YLine;
 
-        int start_XLine = (int) (xy_X[0]+bp_XLine/2),
+        int start_XLine = (int) (xy_X[0]),
                 end_XLine = (int) (xy_X[0]+length_X-bp_XLine/2),
                 start_YLine = (int) (xy_Y[1]+length_Y-bp_YLine/2),
                 end_YLine = (int) (xy_Y[1]+bp_YLine/2);
         int len_XLineText = end_XLine - start_XLine,len_YLineText = start_YLine - end_YLine;
         int size = diagramInfo.points.size();
-        if(size > 5) size = 5;
-        double len_XLinePart = len_XLineText / diagramInfo.getXLineRange(),
+        double len_XLinePart = len_XLineText / (diagramInfo.getXLineRange()>maxXLine?maxXLine:diagramInfo.getXLineRange()),
                 len_YLinePart = len_YLineText / diagramInfo.getYLineRange();
         x_XLine = new int[size];
         y_YLine = new int[size];
@@ -121,12 +123,11 @@ class DrawThread extends Thread {
 
     private void drawNumDiagram() {
         for (int i = 0; i < diagramInfo.points.size(); i++)
-            if(isShowBar) canvas.drawRect(x_XLine[i]-width_Bar/2,y_YLine[i],x_XLine[i] + width_Bar/2, xy_X[1],paint_Bar);
+            if(isShowBar) canvas.drawRect(x_XLine[i],y_YLine[i],x_XLine[i] + width_Bar, xy_X[1],paint_Bar);
         for (int i = 0; i < diagramInfo.points.size(); i++) {
-            drawNumDiagramPointText(i);
             if(i < diagramInfo.points.size() - 1) {
-                Point point_start = new Point(x_XLine[i], y_YLine[i]);
-                Point point_end = new Point(x_XLine[i + 1], y_YLine[i + 1]);
+                Point point_start = new Point(x_XLine[i]+getBarWidth(), y_YLine[i]);
+                Point point_end = new Point(x_XLine[i+1]+getBarWidth(), y_YLine[i+1]);
                 int wt = (point_start.x + point_end.x) / 2;
                 Point p3 = new Point();
                 Point p4 = new Point();
@@ -148,13 +149,21 @@ class DrawThread extends Thread {
                 if(isShowPeakLine) canvas.drawPath(path, paint_Diagram_Line);
                 if(isShowLineChart) canvas.drawLine(point_start.x,point_start.y,point_end.x,point_end.y,paint_LineChart);
             }
-            if(isShowPeakPoint) canvas.drawCircle(x_XLine[i],y_YLine[i],paint_Diagram_Line.getStrokeWidth()+5,paint_Diagram_Point);
+            if(isShowPeakPoint) canvas.drawCircle(x_XLine[i]+getBarWidth(),y_YLine[i],paint_Diagram_Line.getStrokeWidth()+5,paint_Diagram_Point);
+            drawNumDiagramPointText(i);
         }
     }
 
+    private int getBarWidth() {
+        if(isShowBar) return width_Bar/2;
+        else return 0;
+    }
+
+    //提示数字
     private void drawNumDiagramPointText(int i) {
         if(isShowPeakPointText) canvas.drawText(diagramInfo.yLineName.get(i),
-                x_XLine[i]-getTextWidth(diagramInfo.yLineName.get(i))/2,y_YLine[i]-20,paint_Text);
+                x_XLine[i]-getTextWidth(diagramInfo.yLineName.get(i))/2+getBarWidth(),
+                y_YLine[i]-getTextHeight(),paint_Text);
     }
 
     //X轴
@@ -178,24 +187,24 @@ class DrawThread extends Thread {
 
     //X轴文字
     private void drawXLineText(int i) {
-        canvas.drawText(diagramInfo.xLineName.get(i),x_XLine[i]-getTextWidth(diagramInfo.xLineName.get(i))/2,xy_X[1]+50,paint_Text);
+        canvas.drawText(diagramInfo.xLineName.get(i),x_XLine[i]-getTextWidth(diagramInfo.xLineName.get(i))/2 +getBarWidth(),xy_X[1]+50,paint_Text);
         drawXLinePointText();
     }
 
     //X轴提示文字
     private void drawXLinePointText() {
-        canvas.drawText(diagramInfo.xLinePointText,length_X+xy_X[0]/2 - getTextWidth(diagramInfo.xLinePointText),xy_X[1]+100,paint_Text);
-        drawYLinePointText();
+        if(!diagramInfo.xLinePointText.isEmpty()) canvas.drawText(diagramInfo.xLinePointText,width - getTextWidth(diagramInfo.xLinePointText),xy_X[1]+100,paint_Text);
     }
 
     //Y轴文字
     private void drawYLineText(int i) {
-        canvas.drawText(diagramInfo.yLineName.get(i),xy_Y[0]-100, y_YLine[i] + getTextHeight(),paint_Text);
+        canvas.drawText(diagramInfo.yLineName.get(i),xy_Y[0]-getTextWidth(String.valueOf(diagramInfo.getYLineMax())), y_YLine[i] + getTextHeight(),paint_Text);
+        drawYLinePointText();
     }
 
     //Y轴提示文字
     private void drawYLinePointText() {
-        canvas.drawText(diagramInfo.yLinePointText,xy_X[0]-50-getTextWidth(diagramInfo.yLinePointText),50,paint_Text);
+        if(!diagramInfo.yLinePointText.isEmpty()) canvas.drawText(diagramInfo.yLinePointText,0,50,paint_Text);
     }
 
     //Y轴标示线

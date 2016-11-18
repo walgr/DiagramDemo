@@ -26,8 +26,8 @@ public class DiagramInfo {
     public DiagramInfo(List<Point> points) {
         this.points = points;
         for(int i = 0;i<points.size();++i) {
-            xLineName.add(String.valueOf(i));
-            yLineName.add(String.valueOf(i));
+            xLineName.add(String.valueOf(points.get(i).x));
+            yLineName.add(String.valueOf(points.get(i).y));
         }
     }
 
@@ -85,10 +85,10 @@ public class DiagramInfo {
 
     public void setXLineName(List<String> xLineName) {
         this.xLineName = xLineName;
-        yLineName.clear();
-        for(Point point:points) {
-            yLineName.add(String.valueOf(point.y));
-        }
+//        yLineName.clear();
+//        for(Point point:points) {
+//            yLineName.add(String.valueOf(point.y));
+//        }
     }
 
     public List<String> getYLineName() {

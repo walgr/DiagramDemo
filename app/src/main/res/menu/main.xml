@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item android:title="显示Y轴"
+        android:id="@+id/action_showY"
+        app:showAsAction="never"/>
+
+    <item android:title="显示Y轴数值"
+        android:id="@+id/action_showY_Number"
+        app:showAsAction="never"/>
+
+    <item android:title="显示柱状图"
+        android:id="@+id/action_bar"
+        app:showAsAction="never"/>
+
+    <item android:title="显示折线图"
+        android:id="@+id/action_line"
+        app:showAsAction="never"/>
+
+    <item android:title="显示峰图"
+        android:id="@+id/action_peak"
+        app:showAsAction="never"/>
+
+    <item android:title="显示峰线"
+        android:id="@+id/action_peak_line"
+        app:showAsAction="never"/>
+
+    <item android:title="显示峰点"
+        android:id="@+id/action_peak_point"
+        app:showAsAction="never"/>
+
+    <item android:title="显示提示文字"
+        android:id="@+id/action_peak_point_text"
+        app:showAsAction="never"/>
+</menu>

@@ -27,6 +27,8 @@
         <attr name="width_Bar" format="integer"/>
         <attr name="size_text" format="integer"/>
 
+        <attr name="maxXLine" format="integer"/>
+
     </declare-styleable>
 
 </resources>
