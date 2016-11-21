@@ -18,6 +18,8 @@
         <attr name="color_Diagram_Peak_Line" format="color"/>
         <attr name="color_Diagram_Peak_Point" format="color"/>
         <attr name="color_Bar" format="color"/>
+        <attr name="color_XYLineText" format="color"/>
+        <attr name="color_PointText" format="color"/>
 
         <attr name="width_XLine" format="integer"/>
         <attr name="width_YLine" format="integer"/>
@@ -25,9 +27,12 @@
         <attr name="width_LineChart" format="integer"/>
         <attr name="width_Diagram_Peak_Line" format="integer"/>
         <attr name="width_Bar" format="integer"/>
-        <attr name="size_text" format="integer"/>
+        <attr name="size_XYText" format="integer"/>
+        <attr name="size_PointText" format="integer"/>
 
         <attr name="maxXLine" format="integer"/>
+
+        <attr name="point_BackImage" format="reference"/>
 
     </declare-styleable>
 

@@ -2,12 +2,15 @@ package com.wpf.diagram;
 
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.PixelFormat;
 import android.graphics.PorterDuff;
+import android.graphics.Rect;
+import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
@@ -24,13 +27,14 @@ public class DiagramView extends SurfaceView implements
 
     private DiagramInfo diagramInfo;
     private Paint paint_LineChart,paint_Diagram_Peak, paint_Diagram_Peak_Line,paint_Diagram_Point,
-            paint_XLine,paint_YLine, paint_YLinePointLine,paint_Bar, paint_Text;
-    private int width_XLine,width_YLine,width_LineChart,width_Diagram_Peak_Line,width_Bar,size_text;
+            paint_XLine,paint_YLine, paint_YLinePointLine,paint_Bar, paint_XYLineText,paint_Point_Text;
+    private int width_XLine,width_YLine,width_LineChart,width_Diagram_Peak_Line,width_Bar, size_XYText,size_Point_Text;
     private int color_LineChart,color_Diagram_Peak, color_Diagram_Peak_Line,color_Diagram_Point,color_XLine,color_YLine,
-            color_YLinePointLine,color_Bar;
+            color_YLinePointLine,color_Bar, color_XYText,color_Point_Text;
     private boolean isRun,isShowYLine,isShowLineChart,isShowYLinePointLine,isShowPeak,isShowPeakPoint,
             isShowPeakLine,isShowPeakPointText, isShowBar;
     private int maxXLine;
+    private Drawable image_Point;
 
     //不需要设置的参数
     private final SurfaceHolder holder;
@@ -53,6 +57,7 @@ public class DiagramView extends SurfaceView implements
 
     public DiagramView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
+
         holder = getHolder();
         setZOrderOnTop(true);
         holder.setFormat(PixelFormat.TRANSLUCENT);
@@ -75,73 +80,82 @@ public class DiagramView extends SurfaceView implements
         color_Diagram_Peak_Line = typedArray.getColor(R.styleable.DiagramView_color_Diagram_Peak_Line,Color.RED);
         color_Diagram_Point = typedArray.getColor(R.styleable.DiagramView_color_Diagram_Peak_Point,Color.RED);
         color_Bar = typedArray.getColor(R.styleable.DiagramView_color_Bar,Color.RED);
+        color_XYText = typedArray.getColor(R.styleable.DiagramView_color_XYLineText,Color.GRAY);
+        color_Point_Text = typedArray.getColor(R.styleable.DiagramView_color_PointText,Color.GRAY);
 
         width_XLine = typedArray.getInt(R.styleable.DiagramView_width_XLine,3);
         width_YLine = typedArray.getInt(R.styleable.DiagramView_width_YLine,3);
         width_LineChart = typedArray.getInt(R.styleable.DiagramView_width_LineChart,5);
         width_Diagram_Peak_Line = typedArray.getInt(R.styleable.DiagramView_width_Diagram_Peak_Line,5);
         width_Bar = typedArray.getInt(R.styleable.DiagramView_width_Bar,56);
-        size_text = typedArray.getInt(R.styleable.DiagramView_size_text,42);
+        size_XYText = typedArray.getInt(R.styleable.DiagramView_size_XYText,42);
+        size_Point_Text = typedArray.getInt(R.styleable.DiagramView_size_PointText,36);
 
-        maxXLine = typedArray.getInt(R.styleable.DiagramView_maxXLine,5)-1;
-        if(maxXLine<1) maxXLine = 1;
+        maxXLine = typedArray.getInt(R.styleable.DiagramView_maxXLine,1)-1;
+
+        image_Point = typedArray.getDrawable(R.styleable.DiagramView_point_BackImage);
 
         typedArray.recycle();
     }
 
     private void init() {
-        if(diagramInfo == null) diagramInfo = new DiagramInfo();
+        if (diagramInfo == null) diagramInfo = new DiagramInfo();
         width = getWidth();
         height = getHeight();
-        paint_LineChart = new Paint();
-        paint_LineChart.setStrokeWidth(width_LineChart);
-        paint_LineChart.setColor(color_LineChart);
-        paint_LineChart.setStyle(Paint.Style.STROKE);
-        paint_LineChart.setAntiAlias(true);
+        if(paint_XLine == null) {
+            paint_LineChart = new Paint();
+            paint_LineChart.setStrokeWidth(width_LineChart);
+            paint_LineChart.setColor(color_LineChart);
+            paint_LineChart.setStyle(Paint.Style.STROKE);
+            paint_LineChart.setAntiAlias(true);
 
-        paint_Diagram_Peak = new Paint();
-        paint_Diagram_Peak.setStyle(Paint.Style.FILL);
-        paint_Diagram_Peak.setColor(color_Diagram_Peak);
-        paint_Diagram_Peak.setStrokeWidth(1);
-        paint_Diagram_Peak.setAntiAlias(true);
+            paint_Diagram_Peak = new Paint();
+            paint_Diagram_Peak.setStyle(Paint.Style.FILL);
+            paint_Diagram_Peak.setColor(color_Diagram_Peak);
+            paint_Diagram_Peak.setStrokeWidth(1);
+            paint_Diagram_Peak.setAntiAlias(true);
 
-        paint_Diagram_Peak_Line = new Paint();
-        paint_Diagram_Peak_Line.setStyle(Paint.Style.STROKE);
-        paint_Diagram_Peak_Line.setColor(color_Diagram_Peak_Line);
-        paint_Diagram_Peak_Line.setStrokeWidth(width_Diagram_Peak_Line);
-        paint_Diagram_Peak_Line.setAntiAlias(true);
+            paint_Diagram_Peak_Line = new Paint();
+            paint_Diagram_Peak_Line.setStyle(Paint.Style.STROKE);
+            paint_Diagram_Peak_Line.setColor(color_Diagram_Peak_Line);
+            paint_Diagram_Peak_Line.setStrokeWidth(width_Diagram_Peak_Line);
+            paint_Diagram_Peak_Line.setAntiAlias(true);
 
-        paint_Diagram_Point = new Paint();
-        paint_Diagram_Point.setStyle(Paint.Style.FILL);
-        paint_Diagram_Point.setColor(color_Diagram_Point);
-        paint_Diagram_Point.setStrokeWidth(1);
-        paint_Diagram_Point.setAntiAlias(true);
+            paint_Diagram_Point = new Paint();
+            paint_Diagram_Point.setStyle(Paint.Style.FILL);
+            paint_Diagram_Point.setColor(color_Diagram_Point);
+            paint_Diagram_Point.setStrokeWidth(1);
+            paint_Diagram_Point.setAntiAlias(true);
 
-        paint_Bar = new Paint();
-        paint_Bar.setStyle(Paint.Style.FILL);
-        paint_Bar.setColor(color_Bar);
-        paint_Bar.setStrokeWidth(1);
-        paint_Bar.setAntiAlias(true);
+            paint_Bar = new Paint();
+            paint_Bar.setStyle(Paint.Style.FILL);
+            paint_Bar.setColor(color_Bar);
+            paint_Bar.setStrokeWidth(1);
+            paint_Bar.setAntiAlias(true);
 
-        paint_XLine = new Paint();
-        paint_XLine.setColor(color_XLine);
-        paint_XLine.setStrokeWidth(width_XLine);
-        paint_XLine.setAntiAlias(true);
+            paint_XLine = new Paint();
+            paint_XLine.setColor(color_XLine);
+            paint_XLine.setStrokeWidth(width_XLine);
+            paint_XLine.setAntiAlias(true);
 
-        paint_YLine = new Paint();
-        paint_YLine.setColor(color_YLine);
-        paint_YLine.setStrokeWidth(width_YLine);
-        paint_YLine.setAntiAlias(true);
+            paint_YLine = new Paint();
+            paint_YLine.setColor(color_YLine);
+            paint_YLine.setStrokeWidth(width_YLine);
+            paint_YLine.setAntiAlias(true);
 
-        paint_YLinePointLine = new Paint();
-        paint_YLinePointLine.setColor(color_YLinePointLine);
-        paint_YLinePointLine.setStrokeWidth(1);
-        paint_YLinePointLine.setAntiAlias(true);
+            paint_YLinePointLine = new Paint();
+            paint_YLinePointLine.setColor(color_YLinePointLine);
+            paint_YLinePointLine.setStrokeWidth(1);
+            paint_YLinePointLine.setAntiAlias(true);
 
-        paint_Text = new Paint();
-        paint_Text.setColor(Color.GRAY);
-        paint_Text.setTextSize(size_text);
+            paint_XYLineText = new Paint();
+            paint_XYLineText.setColor(color_XYText);
+            paint_XYLineText.setTextSize(size_XYText);
 
+            paint_Point_Text = new Paint();
+            paint_Point_Text.setColor(color_Point_Text);
+            paint_Point_Text.setTextSize(size_Point_Text);
+        }
         calLocation();
     }
 
@@ -159,7 +173,7 @@ public class DiagramView extends SurfaceView implements
 
     @Override
     public void surfaceChanged(SurfaceHolder surfaceHolder, int i, int i1, int i2) {
-        if(drawThread != null && !drawThread.isAlive()) startAll();
+        if(drawThread != null && !drawThread.isAlive()) reStart();
     }
 
     @Override
@@ -170,6 +184,8 @@ public class DiagramView extends SurfaceView implements
     public void setDiagramInfo(DiagramInfo diagramInfo) {
         if(diagramInfo == null) return;
         this.diagramInfo = diagramInfo;
+        if(maxXLine == 0) maxXLine = diagramInfo.points.size();
+        if(maxXLine<1) maxXLine = 1;
         holder.addCallback(this);
     }
 
@@ -193,9 +209,9 @@ public class DiagramView extends SurfaceView implements
         x_XLine = new int[size];
         y_YLine = new int[size];
 
-        for(int i =0;i<size;++i) {
-            x_XLine[i] = (int) (start_XLine + len_XLinePart *(diagramInfo.points.get(i).x-diagramInfo.getXLineMin()));
-            y_YLine[i] = (int) (start_YLine - len_YLinePart *(diagramInfo.points.get(i).y-diagramInfo.getYLineMin()));
+        for (int i = 0; i < size; ++i) {
+            x_XLine[i] = (int) (start_XLine + len_XLinePart * (diagramInfo.points.get(i).x - diagramInfo.getXLineMin()));
+            y_YLine[i] = (int) (start_YLine - len_YLinePart * (diagramInfo.points.get(i).y - diagramInfo.getYLineMin()));
         }
         left = x_XLine[0];
     }
@@ -230,7 +246,7 @@ public class DiagramView extends SurfaceView implements
                 oldX = motionEvent.getX();
                 break;
             case MotionEvent.ACTION_MOVE:
-                moveDiagram((int) (motionEvent.getX() - oldX));
+                moveDiagram(motionEvent.getX() - oldX);
                 oldX = motionEvent.getX();
                 break;
             case MotionEvent.ACTION_UP:
@@ -248,7 +264,7 @@ public class DiagramView extends SurfaceView implements
     }
 
     //移动绘画
-    private void moveDiagram(int x) {
+    private void moveDiagram(float x) {
         if(x_XLine[0]+x>left) x=left-x_XLine[0];
         if(x_XLine[x_XLine.length-1] + x < length_X) x=length_X-x_XLine[x_XLine.length-1];
         for(int i=0;i<x_XLine.length;++i) x_XLine[i]+=x;
@@ -295,9 +311,34 @@ public class DiagramView extends SurfaceView implements
 
     //提示数字
     private void drawNumDiagramPointText(int i) {
-        if(isShowPeakPointText) canvas.drawText(diagramInfo.yLineName.get(i),
-                x_XLine[i]-getTextWidth(diagramInfo.yLineName.get(i))/2+getBarWidth(),
-                y_YLine[i]-getTextHeight(), paint_Text);
+        if(isShowPeakPointText) {
+            Bitmap bitmap = drawableToBitmap(image_Point);
+            if(bitmap != null) {
+                Rect rect_f = new Rect(0,0, image_Point.getIntrinsicWidth(),image_Point.getIntrinsicHeight());
+
+                Rect rect_t = new Rect(x_XLine[i]-image_Point.getIntrinsicWidth()/2 + getBarWidth(),
+                        y_YLine[i]-image_Point.getIntrinsicHeight()-10,
+                        x_XLine[i]+image_Point.getIntrinsicWidth()/2 + getBarWidth(),
+                        y_YLine[i]-10);
+                canvas.drawBitmap(bitmap,rect_f,rect_t, paint_Point_Text);
+            }
+            canvas.drawText(diagramInfo.yLineName.get(i),
+                    x_XLine[i] - getTextWidth(diagramInfo.yLineName.get(i)) / 2 + getBarWidth(),
+                    y_YLine[i] - getTextHeight() - ((bitmap != null)?image_Point.getIntrinsicHeight()/2:0),
+                    paint_Point_Text);
+        }
+    }
+
+    public static Bitmap drawableToBitmap(Drawable drawable) {
+        if(drawable == null) return null;
+        Bitmap bitmap = Bitmap.createBitmap(
+                drawable.getIntrinsicWidth(),
+                drawable.getIntrinsicHeight(),
+                drawable.getOpacity() != PixelFormat.OPAQUE ? Bitmap.Config.ARGB_8888 : Bitmap.Config.RGB_565);
+        Canvas canvas = new Canvas(bitmap);
+        drawable.setBounds(0, 0, drawable.getIntrinsicWidth(), drawable.getIntrinsicHeight());
+        drawable.draw(canvas);
+        return bitmap;
     }
 
     //X轴
@@ -322,27 +363,27 @@ public class DiagramView extends SurfaceView implements
     //X轴文字
     private void drawXLineText(int i) {
         String xName = i>=diagramInfo.xLineName.size()?"":diagramInfo.xLineName.get(i);
-        canvas.drawText(xName,x_XLine[i]-getTextWidth(xName)/2 +getBarWidth(),xy_X[1]+50,paint_Text);
+        canvas.drawText(xName,x_XLine[i]-getTextWidth(xName)/2 +getBarWidth(),xy_X[1]+50, paint_XYLineText);
         drawXLinePointText();
     }
 
     //X轴提示文字
     private void drawXLinePointText() {
-        if(!diagramInfo.xLinePointText.isEmpty()) canvas.drawText(diagramInfo.xLinePointText,width - getTextWidth(diagramInfo.xLinePointText),xy_X[1]+100,paint_Text);
+        if(!diagramInfo.xLinePointText.isEmpty()) canvas.drawText(diagramInfo.xLinePointText,width - getTextWidth(diagramInfo.xLinePointText),xy_X[1]+100, paint_XYLineText);
     }
 
     //Y轴文字
     private void drawYLineText(int i) {
         if(isShowYLinePointLine) {
             String yName = i >= diagramInfo.yLineName.size() ? "" : diagramInfo.yLineName.get(i);
-            canvas.drawText(yName, xy_Y[0] - getTextWidth(String.valueOf(diagramInfo.getYLineMax())), y_YLine[i] + getTextHeight(), paint_Text);
+            canvas.drawText(yName, xy_Y[0] - getTextWidth(String.valueOf(diagramInfo.getYLineMax())), y_YLine[i] + getTextHeight(), paint_XYLineText);
         }
         drawYLinePointText();
     }
 
     //Y轴提示文字
     private void drawYLinePointText() {
-        if(!diagramInfo.yLinePointText.isEmpty()) canvas.drawText(diagramInfo.yLinePointText,0,50,paint_Text);
+        if(!diagramInfo.yLinePointText.isEmpty()) canvas.drawText(diagramInfo.yLinePointText,0,50, paint_XYLineText);
     }
 
     //Y轴标示线
@@ -352,12 +393,12 @@ public class DiagramView extends SurfaceView implements
 
     //文字宽度
     private float getTextWidth(String text) {
-        return paint_Text.measureText(text);
+        return paint_Point_Text.measureText(text);
     }
 
     //文字高度
     private float getTextHeight() {
-        Paint.FontMetrics fontMetrics= paint_Text.getFontMetrics();
+        Paint.FontMetrics fontMetrics= paint_Point_Text.getFontMetrics();
         return (-fontMetrics.ascent-fontMetrics.descent)/2;
     }
 
@@ -371,12 +412,12 @@ public class DiagramView extends SurfaceView implements
     }
 
     public void reStart() {
-        init();
         stopAll();
+        init();
         reDraw();
     }
 
-    private void reDraw() {
+    public void reDraw() {
         canvas = holder.lockCanvas();
         canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
         drawAll(canvas);
@@ -523,12 +564,12 @@ public class DiagramView extends SurfaceView implements
         this.maxXLine = maxXLine;
     }
 
-    public int getSize_text() {
-        return size_text;
+    public int getSize_XYText() {
+        return size_XYText;
     }
 
-    public void setSize_text(int size_text) {
-        this.size_text = size_text;
+    public void setSize_XYText(int size_XYText) {
+        this.size_XYText = size_XYText;
     }
 
     public int getWidth_Bar() {

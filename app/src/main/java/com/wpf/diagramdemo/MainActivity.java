@@ -77,7 +77,7 @@ public class MainActivity extends AppCompatActivity {
                 diagramView.setShowPeakPointText(!diagramView.isShowPeakPointText());
                 break;
         }
-        diagramView.reStart();
+        diagramView.reDraw();
         return super.onOptionsItemSelected(item);
     }
 }
