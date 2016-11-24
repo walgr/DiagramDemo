@@ -21,7 +21,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         List<Point> points = new ArrayList<>();
-        points.add(new Point(0,0));
+        points.add(new Point(0,100));
         points.add(new Point(1,212.3));
         points.add(new Point(2,345.1));
         points.add(new Point(3,756.2));
@@ -30,7 +30,7 @@ public class MainActivity extends AppCompatActivity {
         points.add(new Point(6,921.3));
         points.add(new Point(7,721.3));
         points.add(new Point(8,321.3));
-        points.add(new Point(9,0));
+        points.add(new Point(9,100));
 
         ArrayList xLineName = new ArrayList<String>() {{add("2014");add("2015");add("2017");add("2018");add("2020");add("2021");add("2022");}};
 

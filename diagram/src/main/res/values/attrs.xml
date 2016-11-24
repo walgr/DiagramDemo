@@ -31,6 +31,7 @@
         <attr name="size_PointText" format="integer"/>
 
         <attr name="maxXLine" format="integer"/>
+        <attr name="start_YLine" format="integer"/>
 
         <attr name="point_BackImage" format="reference"/>
 

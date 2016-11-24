@@ -1,5 +1,6 @@
 package com.wpf.diagram;
 
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Bitmap;
@@ -23,7 +24,7 @@ import android.view.View;
  */
 
 public class DiagramView extends SurfaceView implements
-        SurfaceHolder.Callback2, Runnable ,View.OnTouchListener {
+        SurfaceHolder.Callback2, View.OnTouchListener {
 
     private DiagramInfo diagramInfo;
     private Paint paint_LineChart,paint_Diagram_Peak, paint_Diagram_Peak_Line,paint_Diagram_Point,
@@ -31,21 +32,23 @@ public class DiagramView extends SurfaceView implements
     private int width_XLine,width_YLine,width_LineChart,width_Diagram_Peak_Line,width_Bar, size_XYText,size_Point_Text;
     private int color_LineChart,color_Diagram_Peak, color_Diagram_Peak_Line,color_Diagram_Point,color_XLine,color_YLine,
             color_YLinePointLine,color_Bar, color_XYText,color_Point_Text;
-    private boolean isRun,isShowYLine,isShowLineChart,isShowYLinePointLine,isShowPeak,isShowPeakPoint,
+    private boolean isShowYLine,isShowLineChart,isShowYLinePointLine,isShowPeak,isShowPeakPoint,
             isShowPeakLine,isShowPeakPointText, isShowBar;
-    private int maxXLine;
+    private int maxXLine,start_YLine;
     private Drawable image_Point;
+    private Bitmap bmp_Point;
+    private Rect rect_f = new Rect();
 
     //不需要设置的参数
     private final SurfaceHolder holder;
     private Canvas canvas;
-    private Thread drawThread;
-    private float[] xy_X = new float[2];
-    private float[] xy_Y = new float[2];
+    private int[] xy_X = new int[2];
+    private int[] xy_Y = new int[2];
     private int[] x_XLine,y_YLine;
     private int length_X,length_Y,left;
-    private float oldX;
+    private float oldX,move_PointX;
     private int width,height;
+    private ValueAnimator va_XLine;
 
     public DiagramView(Context context) {
         this(context,null);
@@ -92,6 +95,7 @@ public class DiagramView extends SurfaceView implements
         size_Point_Text = typedArray.getInt(R.styleable.DiagramView_size_PointText,36);
 
         maxXLine = typedArray.getInt(R.styleable.DiagramView_maxXLine,1)-1;
+        start_YLine = typedArray.getInt(R.styleable.DiagramView_start_YLine,0);
 
         image_Point = typedArray.getDrawable(R.styleable.DiagramView_point_BackImage);
 
@@ -157,6 +161,15 @@ public class DiagramView extends SurfaceView implements
             paint_Point_Text.setTextSize(size_Point_Text);
         }
         calLocation();
+        va_XLine = ValueAnimator.ofInt(0,length_X);
+        va_XLine.setDuration(200);
+        va_XLine.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator valueAnimator) {
+                length_X = (int) valueAnimator.getAnimatedValue();
+                reDraw();
+            }
+        });
     }
 
     @Override
@@ -167,18 +180,17 @@ public class DiagramView extends SurfaceView implements
     @Override
     public void surfaceCreated(SurfaceHolder surfaceHolder) {
         init();
-        if(drawThread == null) drawThread = new Thread(this);
-        if(!drawThread.isAlive()) startAll();
+        startAll();
     }
 
     @Override
     public void surfaceChanged(SurfaceHolder surfaceHolder, int i, int i1, int i2) {
-        if(drawThread != null && !drawThread.isAlive()) reStart();
+//        reStart();
     }
 
     @Override
     public void surfaceDestroyed(SurfaceHolder surfaceHolder) {
-        if(drawThread != null && drawThread.isAlive()) stopAll();
+
     }
 
     public void setDiagramInfo(DiagramInfo diagramInfo) {
@@ -191,17 +203,17 @@ public class DiagramView extends SurfaceView implements
 
     private void calLocation() {
         int bp_XLine = width / 10,bp_YLine = height / 10;
-        xy_X[0] = (int) getTextWidth(String.valueOf(diagramInfo.getYLineMax()));
+        xy_X[0] = (int) getTextWidth(paint_XYLineText,String.valueOf(diagramInfo.getYLineMax()));
         xy_X[1] = height - bp_YLine;
-        xy_Y[0] = (int) getTextWidth(String.valueOf(diagramInfo.getYLineMax()));
+        xy_Y[0] = (int) getTextWidth(paint_XYLineText,String.valueOf(diagramInfo.getYLineMax()));
         xy_Y[1] = 0;
-        length_X = width - bp_XLine;
+        length_X = width-xy_X[0]-bp_XLine;
         length_Y = height - bp_YLine;
 
-        int start_XLine = (int) (xy_X[0]),
-                end_XLine = (int) (xy_X[0]+length_X- bp_XLine /2),
-                start_YLine = (int) (xy_Y[1]+length_Y),
-                end_YLine = (int) (xy_Y[1]+ bp_YLine /2);
+        int start_XLine = xy_X[0],
+                end_XLine = xy_X[0]+length_X,
+                start_YLine = xy_Y[1]+length_Y,
+                end_YLine = xy_Y[1]+bp_YLine + getPointTextAndImageHeight();
         int len_XLineText = end_XLine - start_XLine,len_YLineText = start_YLine - end_YLine;
         int size = diagramInfo.points.size();
         double len_XLinePart = len_XLineText / (diagramInfo.getXLineRange()>maxXLine?maxXLine:diagramInfo.getXLineRange()),
@@ -211,32 +223,27 @@ public class DiagramView extends SurfaceView implements
 
         for (int i = 0; i < size; ++i) {
             x_XLine[i] = (int) (start_XLine + len_XLinePart * (diagramInfo.points.get(i).x - diagramInfo.getXLineMin()));
-            y_YLine[i] = (int) (start_YLine - len_YLinePart * (diagramInfo.points.get(i).y - diagramInfo.getYLineMin()));
+            y_YLine[i] = (int) (start_YLine - len_YLinePart * (diagramInfo.points.get(i).y - this.start_YLine));
         }
         left = x_XLine[0];
     }
 
-    @Override
-    public void run() {
-        while (isRun) {
-            synchronized(holder) {
-                Canvas canvas = holder.lockCanvas();
-                if (canvas != null) drawAll(canvas);
-                holder.unlockCanvasAndPost(canvas);
-                stopAll();
-                try {
-                    Thread.sleep(17);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
+    private void draw() {
+        synchronized(holder) {
+            drawAll();
+            holder.unlockCanvasAndPost(canvas);
+            if(!va_XLine.isStarted()) va_XLine.start();
         }
+        setOnTouchListener(this);
     }
 
-    private void drawAll(Canvas canvas) {
-        this.canvas = canvas;
-        drawNumLine();
-        setOnTouchListener(this);
+    private void drawAll() {
+        drawNumLineByXLength(length_X+getBarWidth());
+        drawNumLineByYLength(length_Y);
+        drawNumDiagram();
+        drawLineText();
+        drawXLinePointLine();
+        drawNumDiagramPointText(getMoveOnPoint((int) move_PointX));
     }
 
     @Override
@@ -246,38 +253,41 @@ public class DiagramView extends SurfaceView implements
                 oldX = motionEvent.getX();
                 break;
             case MotionEvent.ACTION_MOVE:
+                move_PointX = motionEvent.getX();
                 moveDiagram(motionEvent.getX() - oldX);
                 oldX = motionEvent.getX();
                 break;
             case MotionEvent.ACTION_UP:
                 oldX = 0;
+                move_PointX = 0;
                 break;
         }
+        reDraw();
         return true;
-    }
-
-    private void drawNumLine() {
-        drawNumLineByXLength(length_X);
-        drawNumLineByYLength(length_Y);
-        drawNumDiagram();
-        drawLineText();
     }
 
     //移动绘画
     private void moveDiagram(float x) {
         if(x_XLine[0]+x>left) x=left-x_XLine[0];
-        if(x_XLine[x_XLine.length-1] + x < length_X) x=length_X-x_XLine[x_XLine.length-1];
+        if(x_XLine[x_XLine.length-1] + x < length_X + left) x=length_X+left-x_XLine[x_XLine.length-1];
         for(int i=0;i<x_XLine.length;++i) x_XLine[i]+=x;
-        reDraw();
     }
 
+    private int getMoveOnPoint(int x) {
+        for(int i = 0;i<x_XLine.length;++i) {
+            if(x>=x_XLine[i]-20 && x<=x_XLine[i]+20) return i;
+        }
+        return -1;
+    }
+
+    //画数据图
     private void drawNumDiagram() {
         for (int i = 0; i < diagramInfo.points.size(); i++)
-            if(isShowBar) canvas.drawRect(x_XLine[i],y_YLine[i],x_XLine[i] + width_Bar, xy_X[1],paint_Bar);
+            if(isShowBar) getCanvas().drawRect(x_XLine[i],y_YLine[i],x_XLine[i] + width_Bar, xy_X[1],paint_Bar);
         for (int i = 0; i < diagramInfo.points.size(); i++) {
             if(i < diagramInfo.points.size() - 1) {
-                android.graphics.Point point_start = new android.graphics.Point(x_XLine[i]+getBarWidth(), y_YLine[i]);
-                android.graphics.Point point_end = new android.graphics.Point(x_XLine[i+1]+getBarWidth(), y_YLine[i+1]);
+                android.graphics.Point point_start = new android.graphics.Point(x_XLine[i]+getBarWidth()/2, y_YLine[i]);
+                android.graphics.Point point_end = new android.graphics.Point(x_XLine[i+1]+getBarWidth()/2, y_YLine[i+1]);
                 int wt = (point_start.x + point_end.x) / 2;
                 android.graphics.Point p3 = new android.graphics.Point();
                 android.graphics.Point p4 = new android.graphics.Point();
@@ -294,39 +304,48 @@ public class DiagramView extends SurfaceView implements
                     path_peak.lineTo(point_end.x,xy_X[1]);
                     path_peak.lineTo(point_start.x,xy_X[1]);
                     path_peak.lineTo(point_start.x,point_start.y);
-                    canvas.drawPath(path_peak, paint_Diagram_Peak);
+                    getCanvas().drawPath(path_peak, paint_Diagram_Peak);
                 }
-                if(isShowPeakLine) canvas.drawPath(path, paint_Diagram_Peak_Line);
-                if(isShowLineChart) canvas.drawLine(point_start.x,point_start.y,point_end.x,point_end.y,paint_LineChart);
+                if(isShowPeakLine) getCanvas().drawPath(path, paint_Diagram_Peak_Line);
+                if(isShowLineChart) getCanvas().drawLine(point_start.x,point_start.y,point_end.x,point_end.y,paint_LineChart);
             }
-            if(isShowPeakPoint) canvas.drawCircle(x_XLine[i]+getBarWidth(),y_YLine[i],paint_Diagram_Peak_Line.getStrokeWidth()+5,paint_Diagram_Point);
-            drawNumDiagramPointText(i);
+            if(isShowPeakPoint) getCanvas().drawCircle(x_XLine[i]+getBarWidth()/2,y_YLine[i],paint_Diagram_Peak_Line.getStrokeWidth()+5,paint_Diagram_Point);
+            if(isShowPeakPointText) drawNumDiagramPointText(i);
         }
     }
 
+    private Canvas getCanvas() {
+        if(canvas == null) canvas = holder.lockCanvas();
+        return canvas;
+    }
+
     private int getBarWidth() {
-        if(isShowBar) return width_Bar/2;
+        if(isShowBar) return width_Bar;
+        else return 0;
+    }
+
+    private int getPointTextAndImageHeight() {
+        if(maxXLine == diagramInfo.points.size()) return image_Point.getIntrinsicHeight();
+        if(isShowPeakPointText) return image_Point.getIntrinsicHeight();
         else return 0;
     }
 
     //提示数字
     private void drawNumDiagramPointText(int i) {
-        if(isShowPeakPointText) {
-            Bitmap bitmap = drawableToBitmap(image_Point);
-            if(bitmap != null) {
-                Rect rect_f = new Rect(0,0, image_Point.getIntrinsicWidth(),image_Point.getIntrinsicHeight());
-
-                Rect rect_t = new Rect(x_XLine[i]-image_Point.getIntrinsicWidth()/2 + getBarWidth(),
-                        y_YLine[i]-image_Point.getIntrinsicHeight()-10,
-                        x_XLine[i]+image_Point.getIntrinsicWidth()/2 + getBarWidth(),
-                        y_YLine[i]-10);
-                canvas.drawBitmap(bitmap,rect_f,rect_t, paint_Point_Text);
-            }
-            canvas.drawText(diagramInfo.yLineName.get(i),
-                    x_XLine[i] - getTextWidth(diagramInfo.yLineName.get(i)) / 2 + getBarWidth(),
-                    y_YLine[i] - getTextHeight() - ((bitmap != null)?image_Point.getIntrinsicHeight()/2:0),
-                    paint_Point_Text);
+        if(i == -1) return;
+        if(bmp_Point == null) {
+            bmp_Point = drawableToBitmap(image_Point);
+            rect_f = new Rect(0,0, image_Point.getIntrinsicWidth(),image_Point.getIntrinsicHeight());
         }
+        Rect rect_t = new Rect(x_XLine[i]-image_Point.getIntrinsicWidth()/2 + getBarWidth()/2,
+                y_YLine[i]-image_Point.getIntrinsicHeight()-10,
+                x_XLine[i]+image_Point.getIntrinsicWidth()/2 + getBarWidth()/2,
+                y_YLine[i]-10);
+        getCanvas().drawBitmap(bmp_Point,rect_f,rect_t, paint_Point_Text);
+        getCanvas().drawText(diagramInfo.yLineName.get(i),
+                x_XLine[i] - getTextWidth(paint_Point_Text,diagramInfo.yLineName.get(i)) / 2 + getBarWidth()/2,
+                y_YLine[i] - getTextHeight(paint_XYLineText) - ((bmp_Point != null)?image_Point.getIntrinsicHeight()/2:0),
+                paint_Point_Text);
     }
 
     public static Bitmap drawableToBitmap(Drawable drawable) {
@@ -343,16 +362,17 @@ public class DiagramView extends SurfaceView implements
 
     //X轴
     private void drawNumLineByXLength(int length) {
-        canvas.drawLine(xy_X[0],xy_X[1],xy_X[0] + length,xy_X[1], paint_XLine);
+        getCanvas().drawLine(xy_X[0],xy_X[1],xy_X[0] + length,xy_X[1], paint_XLine);
     }
 
     //Y轴
     private void drawNumLineByYLength(int length) {
-        if(isShowYLine) canvas.drawLine(xy_Y[0],xy_Y[1],xy_Y[0],xy_Y[1] + length, paint_YLine);
+        if(isShowYLine) getCanvas().drawLine(xy_Y[0],xy_Y[1],xy_Y[0],xy_Y[1] + length, paint_YLine);
     }
 
     //所有文字
     private void drawLineText() {
+        //getCanvas().drawText(String.valueOf(start_YLine),xy_Y[0]-getTextWidth(paint_XYLineText,String.valueOf(start_YLine)),xy_X[1]+getTextHeight(paint_XYLineText),paint_XYLineText);
         for(int i = 0;i<diagramInfo.points.size();++i) {
             drawXLineText(i);
             drawYLineText(i);
@@ -363,56 +383,56 @@ public class DiagramView extends SurfaceView implements
     //X轴文字
     private void drawXLineText(int i) {
         String xName = i>=diagramInfo.xLineName.size()?"":diagramInfo.xLineName.get(i);
-        canvas.drawText(xName,x_XLine[i]-getTextWidth(xName)/2 +getBarWidth(),xy_X[1]+50, paint_XYLineText);
+        getCanvas().drawText(xName,x_XLine[i]-getTextWidth(paint_XYLineText,xName)/2 +getBarWidth()/2,xy_X[1]+50, paint_XYLineText);
         drawXLinePointText();
     }
 
     //X轴提示文字
     private void drawXLinePointText() {
-        if(!diagramInfo.xLinePointText.isEmpty()) canvas.drawText(diagramInfo.xLinePointText,width - getTextWidth(diagramInfo.xLinePointText),xy_X[1]+100, paint_XYLineText);
+        if(!diagramInfo.xLinePointText.isEmpty()) getCanvas().drawText(diagramInfo.xLinePointText,width-width/10+getBarWidth()/2-getTextWidth(paint_XYLineText,diagramInfo.xLinePointText),xy_X[1]+100, paint_XYLineText);
     }
 
     //Y轴文字
     private void drawYLineText(int i) {
         if(isShowYLinePointLine) {
             String yName = i >= diagramInfo.yLineName.size() ? "" : diagramInfo.yLineName.get(i);
-            canvas.drawText(yName, xy_Y[0] - getTextWidth(String.valueOf(diagramInfo.getYLineMax())), y_YLine[i] + getTextHeight(), paint_XYLineText);
+            getCanvas().drawText(yName, xy_Y[0] - getTextWidth(paint_XYLineText,String.valueOf(diagramInfo.getYLineMax())), y_YLine[i] + getTextHeight(paint_XYLineText), paint_XYLineText);
         }
         drawYLinePointText();
     }
 
     //Y轴提示文字
     private void drawYLinePointText() {
-        if(!diagramInfo.yLinePointText.isEmpty()) canvas.drawText(diagramInfo.yLinePointText,0,50, paint_XYLineText);
+        if(!diagramInfo.yLinePointText.isEmpty()) getCanvas().drawText(diagramInfo.yLinePointText,0,50, paint_XYLineText);
     }
 
     //Y轴标示线
     private void drawYLinePointLine(int i) {
-        if(isShowYLinePointLine) canvas.drawLine(xy_Y[0],y_YLine[i],xy_Y[0]+length_X,y_YLine[i],paint_YLinePointLine);
+        if(isShowYLinePointLine) getCanvas().drawLine(xy_Y[0],y_YLine[i],xy_Y[0]+length_X+getBarWidth(),y_YLine[i],paint_YLinePointLine);
+    }
+
+    //X轴提示线
+    private void drawXLinePointLine() {
+        if(move_PointX == 0) return;
+        getCanvas().drawLine(move_PointX,xy_Y[1],move_PointX,xy_Y[1]+length_Y,paint_YLinePointLine);
     }
 
     //文字宽度
-    private float getTextWidth(String text) {
-        return paint_Point_Text.measureText(text);
+    private float getTextWidth(Paint paint, String text) {
+        return paint.measureText(text);
     }
 
     //文字高度
-    private float getTextHeight() {
-        Paint.FontMetrics fontMetrics= paint_Point_Text.getFontMetrics();
+    private float getTextHeight(Paint paint) {
+        Paint.FontMetrics fontMetrics= paint.getFontMetrics();
         return (-fontMetrics.ascent-fontMetrics.descent)/2;
     }
 
     public void startAll() {
-        isRun = true;
-        new Thread(this).start();
-    }
-
-    public void stopAll() {
-        isRun = false;
+        draw();
     }
 
     public void reStart() {
-        stopAll();
         init();
         reDraw();
     }
@@ -420,7 +440,7 @@ public class DiagramView extends SurfaceView implements
     public void reDraw() {
         canvas = holder.lockCanvas();
         canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
-        drawAll(canvas);
+        drawAll();
         holder.unlockCanvasAndPost(canvas);
     }
 
@@ -464,12 +484,28 @@ public class DiagramView extends SurfaceView implements
         this.color_LineChart = color_LineChart;
     }
 
+    public int getColor_Point_Text() {
+        return color_Point_Text;
+    }
+
+    public void setColor_Point_Text(int color_Point_Text) {
+        this.color_Point_Text = color_Point_Text;
+    }
+
     public int getColor_XLine() {
         return color_XLine;
     }
 
     public void setColor_XLine(int color_XLine) {
         this.color_XLine = color_XLine;
+    }
+
+    public int getColor_XYText() {
+        return color_XYText;
+    }
+
+    public void setColor_XYText(int color_XYText) {
+        this.color_XYText = color_XYText;
     }
 
     public int getColor_YLine() {
@@ -490,6 +526,22 @@ public class DiagramView extends SurfaceView implements
 
     public DiagramInfo getDiagramInfo() {
         return diagramInfo;
+    }
+
+    public Drawable getImage_Point() {
+        return image_Point;
+    }
+
+    public void setImage_Point(Drawable image_Point) {
+        this.image_Point = image_Point;
+    }
+
+    public Bitmap getBmp_Point() {
+        return bmp_Point;
+    }
+
+    public void setBmp_Point(Bitmap bmp_Point) {
+        this.bmp_Point = bmp_Point;
     }
 
     public boolean isShowBar() {
@@ -564,12 +616,12 @@ public class DiagramView extends SurfaceView implements
         this.maxXLine = maxXLine;
     }
 
-    public int getSize_XYText() {
-        return size_XYText;
+    public int getStart_YLine() {
+        return start_YLine;
     }
 
-    public void setSize_XYText(int size_XYText) {
-        this.size_XYText = size_XYText;
+    public void setStart_YLine(int start_YLine) {
+        this.start_YLine = start_YLine;
     }
 
     public int getWidth_Bar() {
